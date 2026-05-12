@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAgent() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/agents/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/agents/$(request.auth.uid)).data.active == true;
+    }
+    function isAdmin() {
+      return isAgent() &&
+        get(/databases/$(database)/documents/agents/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Agents: agents can read all, only admin can write others' docs, agents can write their own
+    match /agents/{agentId} {
+      allow read: if isAgent();
+      allow write: if isAdmin() || (isAgent() && request.auth.uid == agentId);
+      allow create: if isSignedIn(); // first login creates own doc
+    }
+
+    // Invites: only agents can read, only admins can write
+    match /invites/{id} {
+      allow read: if isAgent();
+      allow write: if isAdmin();
+    }
+
+    // Conversations: agents can read/write all
+    match /conversations/{convId} {
+      allow read, write: if isAgent();
+
+      // Messages subcollection
+      match /messages/{msgId} {
+        allow read, write: if isAgent();
+      }
+    }
+
+    // Flows: only agents can read/write
+    match /flows/{flowId} {
+      allow read, write: if isAgent();
+    }
+
+    // Widget config: only agents can read/write
+    match /widgetConfig/{docId} {
+      allow read: if true;  // public read for the widget script
+      allow write: if isAdmin();
+    }
+  }
+}
