@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../../lib/firebase'
-import { useStore } from '../../store'
+import { db } from '../lib/firebase'
+import { useStore } from '../store'
 import { Icon } from '../Icon'
 
 const STATUSES = [
