@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useStore } from '../store'
-import { Icon } from '../Icon'
+import { Icon } from './Icon'
 
 const STATUSES = [
   { id: 'online', label: 'Disponible',   color: '#00E676', icon: 'wifi',    bg: 'rgba(0,230,118,0.12)'  },
