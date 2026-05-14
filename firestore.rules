@@ -1,16 +1,56 @@
+// ============================================================
+// PUNTOSTOCK — Firestore Security Rules
+// Pegar en Firebase Console → Firestore → Rules
+// ============================================================
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /agents/{agentId} {
-      allow read, write: if request.auth != null;
+
+    // ── Helpers ────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
     }
-    match /invites/{inviteId} {
-      allow read, write: if request.auth != null;
+
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    match /conversations/{convId} {
-      allow read, write: if true;
-      match /messages/{msgId} {
-        allow read, write: if true;
+
+    function belongsToBusiness(businessId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.businessId == businessId;
+    }
+
+    function businessIsActive(businessId) {
+      return get(/databases/$(database)/documents/businesses/$(businessId)).data.active == true;
+    }
+
+    // ── Users collection ───────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── Businesses collection ──────────────────────────────
+    match /businesses/{businessId} {
+      // Solo admin puede leer todos los negocios
+      allow list: if isAdmin();
+      // El dueño puede leer su propio negocio
+      allow read: if isAdmin() || belongsToBusiness(businessId);
+      // Creación solo al registrarse (el UID del usuario == businessId)
+      allow create: if isAuth() && request.auth.uid == businessId;
+      // Updates: dueño puede editar sus datos; admin puede editar todo
+      allow update: if isAdmin() || (belongsToBusiness(businessId) && businessIsActive(businessId));
+      allow delete: if isAdmin();
+
+      // ── Subcollections del negocio ───────────────────────
+      // Solo el dueño (cuando el negocio está activo) o el admin
+      match /{collection}/{docId} {
+        allow read, write: if isAdmin() ||
+          (belongsToBusiness(businessId) && businessIsActive(businessId));
       }
     }
   }

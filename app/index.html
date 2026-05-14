@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PuntoStock — Control Simple. Negocios en Orden.</title>
+  <link rel="stylesheet" href="../css/styles.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237ED321'/><text y='.9em' font-size='80' x='15' fill='%230D1117' font-weight='900'>P</text></svg>">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<div id="auth-screen"></div>
+
+<div id="app" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <img src="../logo-dark.png" class="ps-logo" alt="PuntoStock" style="height:34px; width:auto;">
+    </div>
+
+    <div class="sidebar-business">
+      <div class="biz-name" id="sidebar-biz-name">Cargando...</div>
+      <div class="biz-plan" id="sidebar-biz-plan">
+        <span style="color:var(--green-primary);">●</span> Sistema activo
+      </div>
+    </div>
+
+    <!-- Selector multi-negocio (oculto si solo tiene 1) -->
+    <div id="sidebar-biz-switcher" style="display:none; padding:10px 12px;
+         border-bottom:1px solid var(--border); background:var(--bg-card);">
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-label">Principal</div>
+
+        <div class="nav-item active" data-page="dashboard" onclick="PS.navigate('dashboard')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          Dashboard
+        </div>
+
+        <div class="nav-item" data-page="ventas" onclick="PS.navigate('ventas')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 0 1-8 0"/>
+          </svg>
+          Nueva venta
+        </div>
+
+        <div class="nav-item" data-page="stock" onclick="PS.navigate('stock')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+          Stock
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Reportes</div>
+
+        <div class="nav-item" data-page="historial" onclick="PS.navigate('historial')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Historial ventas
+        </div>
+
+        <div class="nav-item" data-page="caja" onclick="PS.navigate('caja')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="5" width="20" height="14" rx="2"/>
+            <line x1="2" y1="10" x2="22" y2="10"/>
+            <line x1="7" y1="15" x2="7.01" y2="15" stroke-width="3" stroke-linecap="round"/>
+            <line x1="11" y1="15" x2="13" y2="15" stroke-linecap="round"/>
+          </svg>
+          Cierre de caja
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Gestión</div>
+
+        <div class="nav-item" data-page="clientes" onclick="PS.navigate('clientes')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Clientes
+        </div>
+
+        <div class="nav-item" data-page="proveedores" onclick="PS.navigate('proveedores')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="1" y="3" width="15" height="13" rx="2"/>
+            <path d="M16 8h4l3 3v5h-7V8z"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/>
+            <circle cx="18.5" cy="18.5" r="2.5"/>
+          </svg>
+          Proveedores
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Sistema</div>
+
+        <div class="nav-item" data-page="admin" id="admin-nav-item" onclick="PS.navigate('admin')" style="display:none;">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Panel Admin
+          <span class="admin-badge" style="margin-left:auto; font-size:9px;">ADMIN</span>
+        </div>
+
+        <div class="nav-item" data-page="config" onclick="PS.navigate('config')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Configuración
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="nav-item" onclick="Config.logout()">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        Cerrar sesión
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div id="main-content">
+    <header id="topbar">
+      <button onclick="toggleSidebar()" id="mobile-menu-btn"
+        style="display:none; background:none; border:none; color:var(--text-primary); cursor:pointer; padding:4px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <span id="topbar-title" class="topbar-title">Dashboard</span>
+      <span class="topbar-date" id="topbar-clock"></span>
+
+      <!-- Theme toggle -->
+      <button class="theme-btn" id="theme-toggle-btn" onclick="Theme.toggle()" title="Cambiar tema">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+
+      <div class="topbar-user" onclick="PS.navigate('config')">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <span id="topbar-user-name" style="font-size:13px; font-weight:600;
+              max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+      </div>
+    </header>
+
+    <main>
+      <div class="page" id="page-dashboard"></div>
+      <div class="page" id="page-ventas"></div>
+      <div class="page" id="page-stock"></div>
+      <div class="page" id="page-historial"></div>
+      <div class="page" id="page-clientes"></div>
+      <div class="page" id="page-proveedores"></div>
+      <div class="page" id="page-caja"></div>
+      <div class="page" id="page-admin"></div>
+      <div class="page" id="page-config"></div>
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ══ MOBILE BOTTOM NAV ══ -->
+<div id="mobile-bottom-nav">
+  <div class="mobile-nav-items">
+
+    <button class="mobile-nav-item active" data-page="dashboard" onclick="PS.navigate('dashboard'); setMobileActive(this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Inicio</span>
+    </button>
+
+    <button class="mobile-nav-item" data-page="ventas" onclick="PS.navigate('ventas'); setMobileActive(this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <path d="M16 10a4 4 0 0 1-8 0"/>
+      </svg>
+      <span>Vender</span>
+    </button>
+
+    <button class="mobile-nav-item" data-page="stock" onclick="PS.navigate('stock'); setMobileActive(this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+        <line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+      <span>Stock</span>
+    </button>
+
+    <button class="mobile-nav-item" data-page="caja" onclick="PS.navigate('caja'); setMobileActive(this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+        <line x1="7" y1="15" x2="7.01" y2="15" stroke-width="3" stroke-linecap="round"/>
+        <line x1="11" y1="15" x2="13" y2="15" stroke-linecap="round"/>
+      </svg>
+      <span>Caja</span>
+    </button>
+
+    <button class="mobile-nav-item" onclick="openDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="5" r="1.5" fill="currentColor"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+      </svg>
+      <span>Más</span>
+    </button>
+
+  </div>
+</div>
+
+<!-- ══ DRAWER ══ -->
+<div id="mobile-more-drawer">
+  <div class="drawer-backdrop" onclick="closeDrawer()"></div>
+  <div class="drawer-content">
+    <div class="drawer-handle"></div>
+
+    <!-- Selector multi-negocio en mobile -->
+    <div id="drawer-biz-switcher" style="display:none; margin-bottom:16px;"></div>
+
+    <div class="drawer-title">Reportes y gestión</div>
+    <div class="drawer-grid">
+
+      <div class="drawer-item" onclick="PS.navigate('historial'); closeDrawer(); setMobileActive(null, 'historial')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span>Historial ventas</span>
+      </div>
+
+      <div class="drawer-item" onclick="PS.navigate('clientes'); closeDrawer(); setMobileActive(null, 'clientes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Clientes</span>
+      </div>
+
+      <div class="drawer-item" onclick="PS.navigate('proveedores'); closeDrawer(); setMobileActive(null, 'proveedores')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="1" y="3" width="15" height="13" rx="2"/>
+          <path d="M16 8h4l3 3v5h-7V8z"/>
+          <circle cx="5.5" cy="18.5" r="2.5"/>
+          <circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+        <span>Proveedores</span>
+      </div>
+
+      <div class="drawer-item" id="drawer-admin-item" style="display:none;"
+           onclick="PS.navigate('admin'); closeDrawer(); setMobileActive(null, 'admin')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Panel Admin</span>
+      </div>
+
+      <div class="drawer-item" onclick="PS.navigate('config'); closeDrawer(); setMobileActive(null, 'config')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Config.</span>
+      </div>
+
+      <!-- Theme toggle en drawer -->
+      <div class="drawer-item" onclick="Theme.toggle(); updateDrawerThemeLabel()">
+        <svg id="drawer-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <span id="drawer-theme-label">Tema claro</span>
+      </div>
+
+    </div>
+
+    <button class="drawer-logout" onclick="Config.logout()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Cerrar sesión
+    </button>
+  </div>
+</div>
+
+<script src="../js/firebase-config.js"></script>
+<script src="../js/app.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/dashboard.js"></script>
+<script src="../js/ventas.js"></script>
+<script src="../js/stock.js"></script>
+<script src="../js/modules.js"></script>
+
+<script>
+  function updateClock() {
+    const el = document.getElementById('topbar-clock');
+    if (el) el.textContent = new Date().toLocaleString('es-AR', {
+      weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'
+    });
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  function checkMobile() {
+    const btn = document.getElementById('mobile-menu-btn');
+    if (btn) btn.style.display = window.innerWidth <= 900 ? 'block' : 'none';
+  }
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+
+  // ── Mobile bottom nav ────────────────────────────────────
+  function setMobileActive(btn, page) {
+    // Quitar activo de todos
+    document.querySelectorAll('.mobile-nav-item').forEach(b => b.classList.remove('active'));
+    if (btn) {
+      btn.classList.add('active');
+    } else if (page) {
+      // Para items del drawer, marcar el botón "Más"
+      const masBtn = document.querySelector('.mobile-nav-item:last-child');
+      if (masBtn) masBtn.classList.add('active');
+    }
+  }
+
+  function openDrawer() {
+    // Mostrar/ocultar admin en drawer según rol
+    const adminItem = document.getElementById('drawer-admin-item');
+    if (adminItem) adminItem.style.display = PS.isAdmin ? 'flex' : 'none';
+    updateDrawerThemeLabel();
+
+    // Selector multi-negocio en drawer
+    const switcherEl = document.getElementById('drawer-biz-switcher');
+    const negocios = PS.allBusinesses || [];
+    if (switcherEl && negocios.length > 1) {
+      switcherEl.style.display = 'block';
+      switcherEl.innerHTML = `
+        <div style="font-size:10px; font-weight:700; color:var(--text-muted);
+                    text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px;">
+          Cambiar negocio
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          ${negocios.map(biz => `
+            <div onclick="PS.cambiarNegocio('${biz.id}'); closeDrawer();"
+              style="display:flex; align-items:center; gap:10px; padding:10px 12px;
+                     border-radius:var(--radius-md); cursor:pointer;
+                     background:${biz.id === PS.businessId ? 'var(--green-muted)' : 'var(--bg-card)'};
+                     border:1px solid ${biz.id === PS.businessId ? 'var(--border-green)' : 'var(--border)'};">
+              <div style="width:8px; height:8px; border-radius:50%;
+                           background:${biz.id === PS.businessId ? 'var(--green-primary)' : 'var(--text-muted)'}; flex-shrink:0;"></div>
+              <span style="font-size:13px; font-weight:${biz.id === PS.businessId ? '700' : '500'};
+                            color:${biz.id === PS.businessId ? 'var(--green-primary)' : 'var(--text-secondary)'};
+                            flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                ${biz.name}
+              </span>
+              ${biz.id === PS.businessId ? `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green-primary)" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else if (switcherEl) {
+      switcherEl.style.display = 'none';
+    }
+
+    document.getElementById('mobile-more-drawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDrawer() {
+    document.getElementById('mobile-more-drawer').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function updateDrawerThemeLabel() {
+    const icon = document.getElementById('drawer-theme-icon');
+    const label = document.getElementById('drawer-theme-label');
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    if (label) label.textContent = isDark ? 'Tema claro' : 'Tema oscuro';
+    if (icon) {
+      icon.innerHTML = isDark
+        ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+        : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    }
+  }
+
+  // Cerrar drawer con swipe down
+  let touchStartY = 0;
+  document.getElementById('mobile-more-drawer').addEventListener('touchstart', e => {
+    touchStartY = e.touches[0].clientY;
+  });
+  document.getElementById('mobile-more-drawer').addEventListener('touchend', e => {
+    if (e.changedTouches[0].clientY - touchStartY > 80) closeDrawer();
+  });
+
+  PS.init();
+
+  // Aplicar logo correcto al cargar según tema guardado
+  const savedTheme = localStorage.getItem('ps_theme') || 'dark';
+  document.querySelectorAll('.ps-logo').forEach(img => {
+    img.src = savedTheme === 'light' ? '../logo-light.png' : '../logo-dark.png';
+  });
+</script>
+<!-- ChatFlow Widget -->
+<script>
+  window.ChatFlowConfig = {
+    projectId: "chat-web-4e49d",
+    apiKey: "AIzaSyCiAfQSrfZ5p0nggi8qv5dMXT4k_-gMtko",
+    color: "#7ED321",
+    botName: "PuntoStock",
+    greeting: "¡Hola! ¿Necesitás ayuda con el sistema?",
+    position: "right",
+    autoOpen: false,
+  };
+</script>
+<script src="https://punto-stock-chat.vercel.app/widget-v4.js" async></script>
+</body>
+</html>
