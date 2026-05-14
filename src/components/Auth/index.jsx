@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, setDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db, gProvider } from '../../lib/firebase'
 import { useStore } from '../../store'
 import { useTheme } from '../../lib/ThemeContext'
@@ -10,8 +10,8 @@ import { Icon, GoogleIcon } from '../Icon'
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
 
-// ← Cambiá esto por tu email de Google
-export const OWNER_EMAIL = 'tu@gmail.com'
+// ← Tu email de Google como administrador
+export const OWNER_EMAIL = 'abellewi49@gmail.com'
 
 export function AuthProvider({ children }) {
   const [user, setUser]         = useState(null)
@@ -26,20 +26,40 @@ export function AuthProvider({ children }) {
       if (u) {
         const ref  = doc(db, 'agents', u.uid)
         const snap = await getDoc(ref)
+
         if (!snap.exists()) {
-          const isOwner = u.email === OWNER_EMAIL || OWNER_EMAIL === 'tu@gmail.com'
+          const isOwner = u.email === OWNER_EMAIL
+
+          // Verificar si fue invitado
+          let isInvited = false
+          let inviteRole = 'agent'
+          try {
+            const invQ = query(collection(db,'invites'), where('email','==',u.email.toLowerCase()), where('used','==',false))
+            const invSnap = await getDocs(invQ)
+            if (!invSnap.empty) {
+              isInvited = true
+              inviteRole = invSnap.docs[0].data().role || 'agent'
+              // Marcar invite como usado
+              await setDoc(invSnap.docs[0].ref, { used: true }, { merge: true })
+            }
+          } catch {}
+
           await setDoc(ref, {
             uid:      u.uid,
             name:     u.displayName || 'Agente',
             email:    u.email,
             photoURL: u.photoURL || '',
-            role:     isOwner ? 'admin' : 'agent',
+            role:     isOwner ? 'admin' : inviteRole,
             status:   'online',
-            active:   isOwner ? true : false,
+            active:   isOwner || isInvited,
             createdAt: Date.now(),
           })
         }
-        const unsubDoc = onSnapshot(ref, s => { setAgentDoc(s.data()); setStoreAgentDoc(s.data()) })
+
+        const unsubDoc = onSnapshot(ref, s => {
+          setAgentDoc(s.data())
+          setStoreAgentDoc(s.data())
+        })
         setReady(true)
         return () => unsubDoc()
       } else {
