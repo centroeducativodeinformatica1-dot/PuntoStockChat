@@ -56,7 +56,6 @@
 
   // Poll messages (Firestore REST doesn't support real-time, so we poll)
   let pollInterval = null;
-  let lastMsgCount = 0;
 
   // Track which message IDs we've already shown
   let shownMsgIds = new Set();
@@ -64,35 +63,51 @@
   async function pollMessages(convId, onNew) {
     if (pollInterval) clearInterval(pollInterval);
 
-    // First poll: load all existing messages and mark them as seen (don't show to visitor)
+    console.log('[ChatFlow] Starting poll for convId:', convId);
+
+    // First poll: mark all existing as seen
     try {
-      const r = await fetch(`${FS}/conversations/${convId}/messages?key=${API_KEY}&orderBy=createdAt`);
+      const r = await fetch(`${FS}/conversations/${convId}/messages?key=${API_KEY}`);
       if (r.ok) {
         const data = await r.json();
         (data.documents || []).forEach(d => {
           const id = d.name?.split('/').pop();
           if (id) shownMsgIds.add(id);
         });
+        console.log('[ChatFlow] Initial messages marked as seen:', shownMsgIds.size);
+      } else {
+        const err = await r.text();
+        console.warn('[ChatFlow] First poll error:', r.status, err);
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('[ChatFlow] First poll exception:', e);
+    }
 
-    // Then poll for NEW messages only
+    // Poll every 1.5s for new messages
     pollInterval = setInterval(async () => {
       try {
-        const r = await fetch(`${FS}/conversations/${convId}/messages?key=${API_KEY}&orderBy=createdAt`);
-        if (!r.ok) return;
+        const r = await fetch(`${FS}/conversations/${convId}/messages?key=${API_KEY}`);
+        if (!r.ok) {
+          console.warn('[ChatFlow] Poll error:', r.status);
+          return;
+        }
         const data = await r.json();
         const docs = data.documents || [];
 
         docs.forEach(d => {
           const id = d.name?.split('/').pop();
-          if (!id || shownMsgIds.has(id)) return; // already seen
+          if (!id || shownMsgIds.has(id)) return;
           shownMsgIds.add(id);
           const msg = fromFirestore(d);
-          // Only show agent messages to visitor (bot messages are shown inline already)
-          if (msg.from === 'agent') onNew(msg);
+          console.log('[ChatFlow] New message received:', msg.from, msg.text?.slice(0,30));
+          if (msg.from === 'agent') {
+            console.log('[ChatFlow] Agent message — showing to visitor');
+            onNew(msg);
+          }
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[ChatFlow] Poll exception:', e);
+      }
     }, 1500);
   }
 
@@ -119,11 +134,38 @@
 
   // ── Geo ────────────────────────────────────────────────────
   async function getGeo() {
-    try {
-      const r = await fetch('https://ip-api.com/json/?fields=status,country,city,regionName,isp,query');
-      const d = await r.json();
-      if (d.status === 'success') return { country: d.country, city: d.city, region: d.regionName, isp: d.isp, ip: d.query };
-    } catch {}
+    // Intentar con varias APIs en orden hasta que una funcione
+    const APIs = [
+      async () => {
+        const r = await fetch('https://ipapi.co/json/');
+        const d = await r.json();
+        if (d.city) return { country: d.country_name, city: d.city, region: d.region, isp: d.org, ip: d.ip };
+      },
+      async () => {
+        const r = await fetch('https://ipwho.is/');
+        const d = await r.json();
+        if (d.success) return { country: d.country, city: d.city, region: d.region, isp: d.connection?.isp, ip: d.ip };
+      },
+      async () => {
+        const r = await fetch('https://api.ipify.org?format=json');
+        const d = await r.json();
+        if (d.ip) {
+          const r2 = await fetch(`https://ipwho.is/${d.ip}`);
+          const d2 = await r2.json();
+          if (d2.success) return { country: d2.country, city: d2.city, region: d2.region, isp: d2.connection?.isp, ip: d.ip };
+        }
+      }
+    ];
+    for (const api of APIs) {
+      try {
+        const result = await api();
+        if (result?.city) {
+          console.log('[ChatFlow] Geo OK:', result.city, result.country);
+          return result;
+        }
+      } catch {}
+    }
+    console.warn('[ChatFlow] Geo failed — all APIs unavailable');
     return null;
   }
 
@@ -364,7 +406,8 @@
     await fsPatch(`conversations/${convId}`, {
       lastMsg: text,
       lastAt: new Date().toISOString(),
-      unread: msgs.filter(m => m.from === 'visitor').length,
+      unread: (msgs.filter(m => m.from === 'visitor').length) + 1,
+      visitorOnline: true,
     });
   }
 

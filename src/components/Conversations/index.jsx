@@ -127,7 +127,7 @@ export default function ConversationsPage() {
                   </div>
                 </div>
                 <div style={{ color:T.textMuted, fontSize:11.5, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.lastMsg||'Sin mensajes'}</div>
-                {c.geo && <div style={{ color:T.textFaint, fontSize:10.5, marginTop:2 }}>{flagEmoji(c.geo.country)} {c.geo.city}</div>}
+                {(c.geoCity||c.geo?.city) && <div style={{ color:T.textFaint, fontSize:10.5, marginTop:2 }}>{flagEmoji(c.geoCountry||c.geo?.country)} {c.geoCity||c.geo?.city}{c.geoCountry ? ', ' + c.geoCountry : ''}</div>}
               </div>
             </div>
           ))}
@@ -144,7 +144,7 @@ export default function ConversationsPage() {
                 <span style={{ color:T.text, fontWeight:700, fontSize:14 }}>{activeConv.visitorName||'Visitante'}</span>
                 <StatusDot status={activeConv.visitorOnline?'online':'offline'} size={8}/>
               </div>
-              {activeConv.geo && <div style={{ color:T.textFaint, fontSize:11 }}>{flagEmoji(activeConv.geo.country)} {geoLabel(activeConv.geo)}</div>}
+              {(activeConv.geoCity||activeConv.geo?.city) && <div style={{ color:T.textFaint, fontSize:11 }}>{flagEmoji(activeConv.geoCountry||activeConv.geo?.country)} {activeConv.geoCity||activeConv.geo?.city}{activeConv.geoCountry ? ', ' + activeConv.geoCountry : ''}</div>}
             </div>
             <button onClick={()=>setShowInfo(s=>!s)}
               style={{ background:showInfo?T.primaryLight:'transparent', border:`1px solid ${showInfo?T.primary+'44':T.border}`, borderRadius:8, padding:'5px 10px', color:showInfo?T.primary:T.textMuted, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontSize:12 }}>
@@ -227,23 +227,57 @@ export default function ConversationsPage() {
               <span style={{ color:T.textFaint, fontSize:11 }}>{activeConv.visitorOnline?'En línea':'Desconectado'}</span>
             </div>
           </div>
-          {activeConv.geo && (
-            <div style={{ padding:'12px 14px', borderBottom:`1px solid ${T.border}` }}>
-              <div style={{ color:T.textFaint, fontSize:10, fontWeight:700, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Ubicación</div>
-              {[['mapPin','Ciudad',activeConv.geo.city],['globe','País',`${flagEmoji(activeConv.geo.country)} ${activeConv.geo.country}`],['tag','Región',activeConv.geo.region],['wifi','ISP',activeConv.geo.isp]].map(([ic,lb,val])=>(
-                <div key={lb} style={{ display:'flex', gap:8, marginBottom:7 }}>
-                  <Icon n={ic} size={12} color={T.textFaint} style={{ marginTop:1 }}/>
-                  <div><div style={{ color:T.textFaint, fontSize:9.5 }}>{lb}</div><div style={{ color:T.textMuted, fontSize:11 }}>{val||'—'}</div></div>
-                </div>
-              ))}
-            </div>
-          )}
+
+          {/* Geo — soporta ambos formatos: campos separados (geoCity) y objeto (geo.city) */}
+          {(() => {
+            const city    = activeConv.geoCity    || activeConv.geo?.city
+            const country = activeConv.geoCountry || activeConv.geo?.country
+            const region  = activeConv.geoRegion  || activeConv.geo?.region
+            const isp     = activeConv.geoIsp     || activeConv.geo?.isp
+            const ip      = activeConv.geoIp      || activeConv.geo?.ip
+            if (!city && !country) return null
+            return (
+              <div style={{ padding:'12px 14px', borderBottom:`1px solid ${T.border}` }}>
+                <div style={{ color:T.textFaint, fontSize:10, fontWeight:700, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Ubicación</div>
+                {[
+                  ['mapPin', 'Ciudad',  city],
+                  ['globe',  'País',    country ? `${flagEmoji(country)} ${country}` : null],
+                  ['tag',    'Región',  region],
+                  ['wifi',   'ISP',     isp],
+                ].filter(([,,v]) => v).map(([ic,lb,val]) => (
+                  <div key={lb} style={{ display:'flex', gap:8, marginBottom:7 }}>
+                    <Icon n={ic} size={12} color={T.textFaint} style={{ marginTop:1 }}/>
+                    <div>
+                      <div style={{ color:T.textFaint, fontSize:9.5 }}>{lb}</div>
+                      <div style={{ color:T.textMuted, fontSize:11 }}>{val||'—'}</div>
+                    </div>
+                  </div>
+                ))}
+                {ip && (
+                  <div style={{ display:'flex', gap:8, marginBottom:7 }}>
+                    <Icon n="globe" size={12} color={T.textFaint} style={{ marginTop:1 }}/>
+                    <div>
+                      <div style={{ color:T.textFaint, fontSize:9.5 }}>IP</div>
+                      <div style={{ color:T.textMuted, fontSize:11, fontFamily:'monospace' }}>{ip}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           <div style={{ padding:'12px 14px' }}>
             <div style={{ color:T.textFaint, fontSize:10, fontWeight:700, letterSpacing:0.5, textTransform:'uppercase', marginBottom:8 }}>Sesión</div>
-            {[['globe','IP',activeConv.geo?.ip],['clock','Inicio',timeAgo(activeConv.createdAt)],['eye','Página',activeConv.page]].map(([ic,lb,val])=>(
+            {[
+              ['clock', 'Inicio', timeAgo(activeConv.createdAt)],
+              ['eye',   'Página', activeConv.page],
+            ].map(([ic,lb,val]) => (
               <div key={lb} style={{ display:'flex', gap:8, marginBottom:7 }}>
                 <Icon n={ic} size={12} color={T.textFaint} style={{ marginTop:1 }}/>
-                <div><div style={{ color:T.textFaint, fontSize:9.5 }}>{lb}</div><div style={{ color:T.textMuted, fontSize:11, wordBreak:'break-all' }}>{val||'—'}</div></div>
+                <div>
+                  <div style={{ color:T.textFaint, fontSize:9.5 }}>{lb}</div>
+                  <div style={{ color:T.textMuted, fontSize:11, wordBreak:'break-all' }}>{val||'—'}</div>
+                </div>
               </div>
             ))}
           </div>
