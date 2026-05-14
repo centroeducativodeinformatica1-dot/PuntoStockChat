@@ -58,21 +58,40 @@
   let pollInterval = null;
   let lastMsgCount = 0;
 
+  // Track which message IDs we've already shown
+  let shownMsgIds = new Set();
+
   async function pollMessages(convId, onNew) {
     if (pollInterval) clearInterval(pollInterval);
+
+    // First poll: load all existing messages and mark them as seen (don't show to visitor)
+    try {
+      const r = await fetch(`${FS}/conversations/${convId}/messages?key=${API_KEY}&orderBy=createdAt`);
+      if (r.ok) {
+        const data = await r.json();
+        (data.documents || []).forEach(d => {
+          const id = d.name?.split('/').pop();
+          if (id) shownMsgIds.add(id);
+        });
+      }
+    } catch(e) {}
+
+    // Then poll for NEW messages only
     pollInterval = setInterval(async () => {
       try {
-        const r = await fetch(
-          `${FS}/conversations/${convId}/messages?key=${API_KEY}&orderBy=createdAt`
-        );
+        const r = await fetch(`${FS}/conversations/${convId}/messages?key=${API_KEY}&orderBy=createdAt`);
         if (!r.ok) return;
         const data = await r.json();
         const docs = data.documents || [];
-        if (docs.length > lastMsgCount) {
-          const newMsgs = docs.slice(lastMsgCount);
-          lastMsgCount = docs.length;
-          newMsgs.forEach(d => onNew(fromFirestore(d)));
-        }
+
+        docs.forEach(d => {
+          const id = d.name?.split('/').pop();
+          if (!id || shownMsgIds.has(id)) return; // already seen
+          shownMsgIds.add(id);
+          const msg = fromFirestore(d);
+          // Only show agent messages to visitor (bot messages are shown inline already)
+          if (msg.from === 'agent') onNew(msg);
+        });
       } catch (e) {}
     }, 1500);
   }
@@ -245,25 +264,38 @@
   }
 
   function addMsg(text, from = 'bot', opts = null) {
-    const isBot = from === 'bot';
+    const isBot      = from === 'bot';
+    const isAgent    = from === 'agent-reply';
+    const isVisitor  = from === 'visitor';
+    const isLeft     = isBot || isAgent;
     const wrap = document.createElement('div');
     wrap.className = 'cf-msg-enter';
-    wrap.style.cssText = `display:flex;gap:7px;align-items:flex-end;justify-content:${isBot ? 'flex-start' : 'flex-end'};`;
+    wrap.style.cssText = `display:flex;gap:7px;align-items:flex-end;justify-content:${isLeft ? 'flex-start' : 'flex-end'};`;
 
-    if (isBot) {
+    const bubbleColor   = isVisitor ? COLOR : isAgent ? '#10B981' : 'white';
+    const bubbleBorder  = isVisitor ? 'none' : `1px solid ${isAgent ? '#10B98133' : '#E2E8F0'}`;
+    const textColor     = isVisitor ? 'white' : DARK;
+    const borderRadius  = isLeft ? '12px 12px 12px 2px' : '12px 12px 2px 12px';
+    const iconColor     = isAgent ? '#10B981' : COLOR;
+    const iconPath      = isAgent
+      ? `<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`
+      : `<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`;
+
+    if (isLeft) {
       wrap.innerHTML = `
-        <div style="width:26px;height:26px;border-radius:50%;background:${COLOR}20;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${COLOR}" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div style="width:26px;height:26px;border-radius:50%;background:${iconColor}20;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5">${iconPath}</svg>
         </div>
         <div style="max-width:72%;">
-          <div style="background:white;border:1px solid #E2E8F0;border-radius:12px 12px 12px 2px;padding:9px 13px;font-size:13px;color:${DARK};line-height:1.5;">${text}</div>
+          ${isAgent ? `<div style="font-size:10px;color:#10B981;font-weight:700;margin-bottom:3px;">Agente humano</div>` : ''}
+          <div style="background:${bubbleColor};border:${bubbleBorder};border-radius:${borderRadius};padding:9px 13px;font-size:13px;color:${textColor};line-height:1.5;">${text}</div>
           ${opts ? `<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px;">${opts.map(o => `<button class="cf-opt-btn" data-opt="${o}" style="background:${COLOR};color:white;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;">${o}</button>`).join('')}</div>` : ''}
         </div>
       `;
     } else {
       wrap.innerHTML = `
         <div style="max-width:72%;">
-          <div style="background:${COLOR};border-radius:12px 12px 2px 12px;padding:9px 13px;font-size:13px;color:white;line-height:1.5;">${text}</div>
+          <div style="background:${bubbleColor};border:${bubbleBorder};border-radius:${borderRadius};padding:9px 13px;font-size:13px;color:${textColor};line-height:1.5;">${text}</div>
         </div>
       `;
     }
@@ -315,7 +347,7 @@
       pollMessages(convId, (msg) => {
         if (msg.from === 'agent') {
           showTyping(false);
-          addMsg(msg.text, 'agent');
+          addMsg(msg.text, 'agent-reply');
         }
       });
     }
